@@ -17,6 +17,26 @@
 
 #define PMSLIB_VERSION       "0.0.1"
 
+#define PMS1003              (0)
+#define PMS3003              (1)
+#define PMS3003P             (2)
+#define PMS5003              (3)
+#define PMS5003P             (4)
+#define PMS5003T             (5)
+#define PMS5003S             (6)
+#define PMS5003ST            (7)
+#define PMS5003I             (8)
+#define PMS6003              (9)
+#define PMS6003P             (10)
+#define PMS7003              (11)
+#define PMS7003P             (12)
+#define PMS7003I             (13)
+#define PMS7003M             (14)
+#define PMS9003M             (15)
+#define PMSA003              (16)
+#define PMSA003P             (17)
+#define PMSA003I             (18)
+
 struct pms_device
 {
     rt_device_t serial; 
