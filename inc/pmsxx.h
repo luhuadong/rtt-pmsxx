@@ -37,6 +37,37 @@
 #define PMSA003P             (17)
 #define PMSA003I             (18)
 
+struct pms_data
+{
+    rt_uint8_t  start1;
+    rt_uint8_t  start2;
+    rt_uint16_t length;
+
+    rt_uint16_t PM1_0_CF1;
+    rt_uint16_t PM2_5_CF1;
+    rt_uint16_t PM10_0_CF1;
+    rt_uint16_t PM1_0_amb;
+    rt_uint16_t PM2_5_amb;
+    rt_uint16_t PM10_0_amb;
+    rt_uint16_t air_0_3um;
+    rt_uint16_t air_0_5um;
+    rt_uint16_t air_1_0um;
+    rt_uint16_t air_2_5um;
+    rt_uint16_t air_5_0um;
+    rt_uint16_t air_10_0um;
+
+#if PMSXX_S
+    rt_uint16_t hcho;
+    rt_uint16_t temp;
+    rt_uint16_t humi;
+#endif
+
+    rt_uint8_t  version;
+    rt_uint8_t  errorCode;
+    rt_uint16_t checksum;
+};
+typedef struct pms_data *pms_data_t;
+
 struct pms_device
 {
     rt_device_t serial; 
@@ -66,5 +97,9 @@ struct pms_device
 };
 typedef struct pms_device *pms_device_t;
 
+
+rt_err_t     pmsxx_init(struct pms_device *dev, const char *uart_dev_name);
+pms_device_t pmsxx_create(const char *uart_dev_name);
+void         pmsxx_delete(pms_device_t dev);
 
 #endif /* __PMSXX_H__ */
