@@ -37,7 +37,27 @@
 #define PMSA003P             (17)
 #define PMSA003I             (18)
 
-struct pms_data
+/* Custom sensor control cmd types */
+#define  RT_SENSOR_CTRL_PMS_ACTIVE               (0x110)   /* Active output mode */
+#define  RT_SENSOR_CTRL_PMS_PASSIVE              (0x111)   /* Passive output mode */
+
+
+#define FRAME_LEN 32
+
+
+struct pms_cmd
+{
+    rt_uint8_t  START1;
+    rt_uint8_t  START2;
+    rt_uint8_t  CMD;
+    rt_uint8_t  DATAH;
+    rt_uint8_t  DATAL;
+    rt_uint8_t  LRCH;
+    rt_uint8_t  LRCL;
+};
+typedef struct pms_cmd *pms_cmd_t;
+
+struct pms_response
 {
     rt_uint8_t  start1;
     rt_uint8_t  start2;
@@ -66,40 +86,24 @@ struct pms_data
     rt_uint8_t  errorCode;
     rt_uint16_t checksum;
 };
-typedef struct pms_data *pms_data_t;
+typedef struct pms_response *pms_response_t;
 
 struct pms_device
 {
-    rt_device_t serial; 
-    struct serial_configure config; 
-    rt_uint16_t len;
-
-    rt_uint16_t PM1_0_CF1;
-    rt_uint16_t PM2_5_CF1;
-    rt_uint16_t PM10_0_CF1;
-    rt_uint16_t PM1_0_amb;
-    rt_uint16_t PM2_5_amb;
-    rt_uint16_t PM10_0_amb;
-    rt_uint16_t air_0_3um;
-    rt_uint16_t air_0_5um;
-    rt_uint16_t air_1_0um;
-    rt_uint16_t air_2_5um;
-    rt_uint16_t air_5_0um;
-    rt_uint16_t air_10_0um;
-    
-    rt_uint16_t hcho;
-    rt_uint16_t temp;
-    rt_uint16_t humi;
-    
-    rt_uint8_t  version;
-    rt_uint8_t  errorCode;
-    rt_uint16_t checksum;
+    rt_device_t serial;
+    struct rt_semaphore rx_sem;
+    struct pms_response resp;
+    rt_mutex_t  lock;
 };
 typedef struct pms_device *pms_device_t;
 
 
-rt_err_t     pmsxx_init(struct pms_device *dev, const char *uart_dev_name);
-pms_device_t pmsxx_create(const char *uart_dev_name);
+rt_err_t     pmsxx_init(struct pms_device *dev, const char *uart_name);
+void         pmsxx_deinit(struct pms_device *dev);
+pms_device_t pmsxx_create(const char *uart_name);
 void         pmsxx_delete(pms_device_t dev);
+
+rt_err_t     pmsxx_get_data(pms_device_t dev);
+rt_bool_t    pmsxx_measure(pms_device_t dev);
 
 #endif /* __PMSXX_H__ */
