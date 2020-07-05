@@ -11,7 +11,7 @@
 #include <board.h>
 #include "pmsxx.h"
 
-#define DBG_TAG "sensor.plantower.pmsxx"
+#define DBG_TAG "sensor.plantower.pms"
 #define DBG_LVL DBG_INFO
 #include <rtdbg.h>
 
@@ -110,7 +110,7 @@ rt_err_t rt_hw_pmsxx_init(const char *name, struct rt_sensor_config *cfg)
     int result;
     rt_sensor_t sensor_dust = RT_NULL;
 
-    if (_pms_init() != RT_EOK)
+    if (_pmsxx_init() != RT_EOK)
     {
         LOG_E("device init failed");
         result = -RT_ERROR;

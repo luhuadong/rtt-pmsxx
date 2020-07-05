@@ -44,6 +44,14 @@
 
 #define FRAME_LEN 32
 
+typedef enum
+{
+    PMS_MODE_PASSIVE = 1,
+    PMS_MODE_ACTIVE,
+    PMS_MODE_STANDBY,
+    PMS_MODE_NORMAL
+
+} pms_mode_t;
 
 struct pms_cmd
 {
@@ -91,19 +99,21 @@ typedef struct pms_response *pms_response_t;
 struct pms_device
 {
     rt_device_t serial;
-    struct rt_semaphore rx_sem;
+    rt_sem_t    rx_sem;
+    rt_thread_t rx_tid;
+
     struct pms_response resp;
+
     rt_mutex_t  lock;
 };
 typedef struct pms_device *pms_device_t;
 
 
-rt_err_t     pmsxx_init(struct pms_device *dev, const char *uart_name);
-void         pmsxx_deinit(struct pms_device *dev);
-pms_device_t pmsxx_create(const char *uart_name);
-void         pmsxx_delete(pms_device_t dev);
+pms_device_t pms_create(const char *uart_name);
+void         pms_delete(pms_device_t dev);
 
-rt_err_t     pmsxx_get_data(pms_device_t dev);
-rt_bool_t    pmsxx_measure(pms_device_t dev);
+rt_err_t     pms_get_data(pms_device_t dev);
+rt_bool_t    pms_measure(pms_device_t dev);
+rt_err_t     pms_set_mode(pms_device_t dev, pms_mode_t mode);
 
 #endif /* __PMSXX_H__ */
