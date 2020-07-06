@@ -18,11 +18,11 @@
 #include <rtdbg.h>
 
 static struct pms_cmd preset_commands[] = {
-    { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 },  /* Read in passive mode */
-    { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 },  /* Change to passive mode */
-    { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 },  /* Change to active  mode */
-    { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 },  /* Change to standby mode */
-    { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 }   /* Change to normal  mode */
+    {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71}, /* Read in passive mode */
+    {0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70}, /* Change to passive mode */
+    {0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71}, /* Change to active  mode */
+    {0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73}, /* Change to standby mode */
+    {0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74}  /* Change to normal  mode */
 };
 
 static void pms_show_command(pms_cmd_t cmd)
@@ -66,7 +66,7 @@ static void pms_show_response(pms_response_t resp)
  */
 static rt_err_t pms_uart_input(rt_device_t dev, rt_size_t size)
 {
-    RT_ASSERT(dev != RT_NULL);
+    RT_ASSERT(dev);
     pms_device_t pms = (pms_device_t)dev->user_data;
 
     if (pms)
@@ -75,13 +75,38 @@ static rt_err_t pms_uart_input(rt_device_t dev, rt_size_t size)
     return RT_EOK;
 }
 
-static void pms_recv_entry(void *parameter)
+static void pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t size)
+{
+    RT_ASSERT(dev);
+
+    rt_uint16_t sum = 0, i;
+    struct pms_response resp;
+
+    rt_memcpy(&resp, buf, size);
+
+    for(i=0; i<(size-2); i++)
+        sum += buf[i];
+
+    if (sum != resp.checksum)
+    {
+        LOG_E("Checksum incorrect!");
+        return;
+    }
+
+    rt_kprintf("==== Frame ====\n");
+    pms_show_response(&resp);
+}
+
+static void pms_recv_thread(void *parameter)
 {
     pms_device_t dev = (pms_device_t)parameter;
+    
     char ch;
-    rt_size_t len = 0;
-    struct pms_response resp;
-    char *p = (char *)&resp;
+    pms_frame_t state = PMS_FRAME_END;
+    rt_uint16_t idx = 0;
+    rt_uint16_t frame_len = 0;
+    rt_uint16_t frame_idx = 0;
+    rt_uint8_t  buf[FRAME_LEN_MAX] = {0};
 
     while (1)
     {
@@ -89,19 +114,95 @@ static void pms_recv_entry(void *parameter)
         {
             rt_sem_take(dev->rx_sem, RT_WAITING_FOREVER);
         }
-#if 1
-        rt_kprintf("%02x ", ch);
-#else
-        if (len < sizeof(resp))
+
+        switch (state)
         {
-            *p++ = ch;
+        case PMS_FRAME_END:
+            if (ch == FRAME_START1)
+            {
+                idx = 0;
+                buf[idx++] = ch;
+                state = PMS_FRAME_HEAD;
+            }
+            break;
+        case PMS_FRAME_HEAD:
+            if (ch == FRAME_START2)
+            {
+                buf[idx++] = ch;
+                state = PMS_FRAME_HEAD_ACK;
+            }
+            break;
+        case PMS_FRAME_HEAD_ACK:
+            {
+                buf[idx++] = ch;
+                state = PMS_FRAME_LENGTH;
+            }
+            break;
+        case PMS_FRAME_LENGTH:
+            {
+                buf[idx++] = ch;
+                frame_len = buf[idx - 2] << 8 | buf[idx - 1];
+                frame_idx = 0;
+
+                if (frame_len <= FRAME_LEN_MAX-4)
+                    state = PMS_FRAME_PAYLOAD;
+                else
+                    state = PMS_FRAME_END;
+            }
+            break;
+        case PMS_FRAME_PAYLOAD:
+            {
+                buf[idx++] = ch;
+                frame_idx++;
+
+                if (frame_idx >= frame_len)
+                {
+                    state = PMS_FRAME_END;
+                    idx = 0;
+                    pms_check_frame(dev, buf, frame_len+4);
+                }
+            }
+            break;
+        default:
+            idx = 0;
+            break;
         }
-        else
+
+#if 0
+    if (state == PMS_FRAME_END && ch == FRAME_START1)
+    {
+        buf[idx++] = ch;
+        state = PMS_FRAME_HEAD;
+    }
+    else if (state == PMS_FRAME_HEAD && ch == FRAME_START2)
+    {
+        buf[idx++] = ch;
+        state = PMS_FRAME_HEAD_ACK;
+    }
+    else if (state == PMS_FRAME_HEAD_ACK)
+    {
+        buf[idx++] = ch;
+        state = PMS_FRAME_LENGTH;
+    }
+    else if (state == PMS_FRAME_LENGTH)
+    {
+        buf[idx++] = ch;
+        frame_len = buf[idx-2] << 8 | buf[idx-1];
+        frame_idx = 0;
+
+        state = PMS_FRAME_PAYLOAD;
+    }
+    else if (state == PMS_FRAME_PAYLOAD)
+    {
+        buf[idx++] = ch;
+        frame_idx++;
+
+        if (frame_idx >= frame_len)
         {
-            pms_show_response(&resp);
-            len = 0;
-            p = (char *)&resp;
+            state = PMS_FRAME_END;
+            idx = 0;
         }
+    }
 #endif
     }
 }
@@ -112,7 +213,7 @@ rt_bool_t pms_measure(pms_device_t dev)
 
     rt_device_write(dev->serial, 0, &preset_commands[0], sizeof(struct pms_cmd));
     pms_show_command(&preset_commands[0]);
-    
+
     return RT_TRUE;
 }
 
@@ -158,8 +259,8 @@ pms_device_t pms_create(const char *uart_name)
     config.baud_rate = BAUD_RATE_9600;
     config.data_bits = DATA_BITS_8;
     config.stop_bits = STOP_BITS_1;
-    config.bufsz     = RT_SERIAL_RB_BUFSZ;
-    config.parity    = PARITY_NONE;
+    config.bufsz = RT_SERIAL_RB_BUFSZ;
+    config.parity = PARITY_NONE;
 
     rt_device_control(dev->serial, RT_DEVICE_CTRL_CONFIG, &config);
     //rt_device_close(dev->serial);
@@ -185,7 +286,7 @@ pms_device_t pms_create(const char *uart_name)
     rt_device_set_rx_indicate(dev->serial, pms_uart_input);
 
     /* create thread */
-    dev->rx_tid = rt_thread_create("pms_rx", pms_recv_entry, dev, 1024, 25, 10);
+    dev->rx_tid = rt_thread_create("pms_rx", pms_recv_thread, dev, 1024, 25, 10);
     if (dev->rx_tid == RT_NULL)
     {
         LOG_E("Can't create thread for pmsxx device");

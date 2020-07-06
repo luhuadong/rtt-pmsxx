@@ -42,7 +42,21 @@
 #define  RT_SENSOR_CTRL_PMS_PASSIVE              (0x111)   /* Passive output mode */
 
 
-#define FRAME_LEN 32
+#define FRAME_LEN            32
+#define FRAME_LEN_MAX        40
+
+#define FRAME_START1         0x42
+#define FRAME_START2         0x4d
+
+typedef enum
+{
+    PMS_FRAME_HEAD,
+    PMS_FRAME_HEAD_ACK,
+    PMS_FRAME_LENGTH,
+    PMS_FRAME_PAYLOAD,
+    PMS_FRAME_END
+
+} pms_frame_t;
 
 typedef enum
 {
