@@ -233,7 +233,7 @@ rt_uint16_t pms_wait(pms_device_t dev, void *buf, rt_uint16_t size)
     return size;
 }
 
-rt_bool_t pms_measure(pms_device_t dev)
+rt_bool_t pms_update(pms_device_t dev)
 {
     RT_ASSERT(dev);
 
@@ -247,7 +247,13 @@ static rt_err_t sensor_init(pms_device_t dev)
 {
     rt_device_open(dev->serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
 
+#if PKG_USING_PMSXX_SILENCE
     pms_set_mode(dev, PMS_MODE_STANDBY);
+#else
+    pms_set_mode(dev, PMS_MODE_NORMAL);
+    pms_set_mode(dev, PMS_MODE_PASSIVE);
+#endif
+
     rt_device_set_rx_indicate(dev->serial, pms_uart_input);
 
     return RT_EOK;
@@ -335,6 +341,7 @@ void pms_delete(pms_device_t dev)
     {
         pms_set_mode(dev, PMS_MODE_STANDBY);
         dev->serial->user_data = RT_NULL;
+        rt_sem_delete(dev->ready);
         rt_sem_delete(dev->rx_sem);
         rt_thread_delete(dev->rx_tid);
         rt_device_close(dev->serial);

@@ -23,21 +23,16 @@
 #define SENSOR_DUST_PERIOD_MIN         (200)
 
 
-static struct pms_cmd preset_commands[] = {
-    { 0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71 },  /* Read in passive mode */
-    { 0x42, 0x4d, 0xe1, 0x00, 0x00, 0x01, 0x70 },  /* Change to passive mode */
-    { 0x42, 0x4d, 0xe1, 0x00, 0x01, 0x01, 0x71 },  /* Change to active  mode */
-    { 0x42, 0x4d, 0xe4, 0x00, 0x00, 0x01, 0x73 },  /* Change to standby mode */
-    { 0x42, 0x4d, 0xe4, 0x00, 0x01, 0x01, 0x74 }   /* Change to normal  mode */
-};
-
 static rt_size_t _pmsxx_polling_get_data(struct rt_sensor_device *sensor, void *buf)
 {
     struct rt_sensor_data *sensor_data = buf;
-    rt_uint32_t dust = 0;
+    pms_device_t dev = (pms_device_t)sensor->config.intf.user_data;
+    struct pms_response resp;
+
+    pms_read(dev, &resp, sizeof(resp));
 
     sensor_data->type = RT_SENSOR_CLASS_DUST;
-    sensor_data->data.dust = dust;
+    sensor_data->data.dust = dev->resp.PM2_5_atm;
     sensor_data->timestamp = rt_sensor_get_ts();
 
     return 1;
@@ -92,54 +87,62 @@ static struct rt_sensor_ops sensor_ops =
  *
  * @return RT_EOK
  */
-static rt_err_t _pmsxx_init(void)
+static rt_err_t _pmsxx_init(struct rt_sensor_intf *intf)
 {
+    if (intf->type == RT_SENSOR_INTF_UART)
+    {
+        pms_device_t dev = pms_create(intf->dev_name);
+        if (!dev)
+        {
+            LOG_E("PMSxx sensor init failed\n");
+            return -RT_ERROR;
+        }
+        intf->user_data = (void *)dev;
+    }
     return RT_EOK;
 }
 
 /**
- * Call function rt_hw_pmsxx_init for initial and register a pmsxx sensor.
+ * Call function rt_hw_pms_init for initial and register a pmsxx sensor.
  *
  * @param name  the name will be register into device framework
  * @param cfg   sensor config
  *
  * @return the result
  */
-rt_err_t rt_hw_pmsxx_init(const char *name, struct rt_sensor_config *cfg)
+rt_err_t rt_hw_pms_init(const char *name, struct rt_sensor_config *cfg)
 {
     int result;
-    rt_sensor_t sensor_dust = RT_NULL;
+    rt_sensor_t sensor = RT_NULL;
 
-    if (_pmsxx_init() != RT_EOK)
+    if (_pmsxx_init(&cfg->intf) != RT_EOK)
     {
-        LOG_E("device init failed");
-        result = -RT_ERROR;
-        goto __exit;
+        return -RT_ERROR;
     }
 
-    /* dust sensor register */
+    /* pms sensor register */
     {
-        sensor_dust = rt_calloc(1, sizeof(struct rt_sensor_device));
-        if (sensor_dust == RT_NULL)
+        sensor = rt_calloc(1, sizeof(struct rt_sensor_device));
+        if (sensor == RT_NULL)
         {
             LOG_E("alloc memory failed");
             result = -RT_ENOMEM;
             goto __exit;
         }
 
-        sensor_dust->info.type       = RT_SENSOR_CLASS_DUST;
-        sensor_dust->info.vendor     = RT_SENSOR_VENDOR_PLANTOWER;
-        sensor_dust->info.model      = "pmsxx";
-        sensor_dust->info.unit       = RT_SENSOR_UNIT_NONE;
-        sensor_dust->info.intf_type  = RT_SENSOR_INTF_UART;
-        sensor_dust->info.range_max  = SENSOR_DUST_RANGE_MAX;
-        sensor_dust->info.range_min  = SENSOR_DUST_RANGE_MIN;
-        sensor_dust->info.period_min = SENSOR_DUST_PERIOD_MIN;
+        sensor->info.type       = RT_SENSOR_CLASS_DUST;
+        sensor->info.vendor     = RT_SENSOR_VENDOR_PLANTOWER;
+        sensor->info.model      = "pmsxx";
+        sensor->info.unit       = RT_SENSOR_UNIT_NONE;
+        sensor->info.intf_type  = RT_SENSOR_INTF_UART;
+        sensor->info.range_max  = SENSOR_DUST_RANGE_MAX;
+        sensor->info.range_min  = SENSOR_DUST_RANGE_MIN;
+        sensor->info.period_min = SENSOR_DUST_PERIOD_MIN;
 
-        rt_memcpy(&sensor_dust->config, cfg, sizeof(struct rt_sensor_config));
-        sensor_dust->ops = &sensor_ops;
+        rt_memcpy(&sensor->config, cfg, sizeof(struct rt_sensor_config));
+        sensor->ops = &sensor_ops;
         
-        result = rt_hw_sensor_register(sensor_dust, name, RT_DEVICE_FLAG_RDWR, RT_NULL);
+        result = rt_hw_sensor_register(sensor, name, RT_DEVICE_FLAG_RDWR, RT_NULL);
         if (result != RT_EOK)
         {
             LOG_E("device register err code: %d", result);
@@ -152,8 +155,8 @@ rt_err_t rt_hw_pmsxx_init(const char *name, struct rt_sensor_config *cfg)
     return RT_EOK;
 
 __exit:
-    if (sensor_dust)
-        rt_free(sensor_dust);
+    if (sensor)
+        rt_free(sensor);
 
     return result;
 }

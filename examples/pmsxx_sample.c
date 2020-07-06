@@ -27,15 +27,12 @@ static void cat_pmsxx_passive(void)
         return;
     }
 
-    pms_set_mode(sensor, PMS_MODE_NORMAL);
-    pms_set_mode(sensor, PMS_MODE_PASSIVE);
-
     while (loop--)
     {
         rt_kprintf("\n[%d] Request...\n", loop);
         pms_read(sensor, &resp, sizeof(resp));
         pms_show_response(&resp);
-        rt_thread_mdelay(5000);
+        rt_thread_mdelay(3000);
     }
     
     rt_kprintf("(PMS) Finished!\n");

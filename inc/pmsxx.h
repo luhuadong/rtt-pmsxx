@@ -131,12 +131,14 @@ void         pms_delete(pms_device_t dev);
 
 rt_uint16_t  pms_read(pms_device_t dev, void *buf, rt_uint16_t size);
 rt_uint16_t  pms_wait(pms_device_t dev, void *buf, rt_uint16_t size);
-rt_bool_t    pms_measure(pms_device_t dev);
+rt_bool_t    pms_update(pms_device_t dev);
 rt_err_t     pms_set_mode(pms_device_t dev, pms_mode_t mode);
 
 void         pms_show_command(pms_cmd_t cmd);
 void         pms_show_response(pms_response_t resp);
 void         pms_dump(const char *buf, rt_uint16_t size);
 
+
+rt_err_t rt_hw_pms_init(const char *name, struct rt_sensor_config *cfg);
 
 #endif /* __PMSXX_H__ */
