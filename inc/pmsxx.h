@@ -60,7 +60,8 @@ typedef enum
 
 typedef enum
 {
-    PMS_MODE_PASSIVE = 1,
+    PMS_MODE_READ = 0,
+    PMS_MODE_PASSIVE,
     PMS_MODE_ACTIVE,
     PMS_MODE_STANDBY,
     PMS_MODE_NORMAL
@@ -88,9 +89,9 @@ struct pms_response
     rt_uint16_t PM1_0_CF1;
     rt_uint16_t PM2_5_CF1;
     rt_uint16_t PM10_0_CF1;
-    rt_uint16_t PM1_0_amb;
-    rt_uint16_t PM2_5_amb;
-    rt_uint16_t PM10_0_amb;
+    rt_uint16_t PM1_0_atm;
+    rt_uint16_t PM2_5_atm;
+    rt_uint16_t PM10_0_atm;
     rt_uint16_t air_0_3um;
     rt_uint16_t air_0_5um;
     rt_uint16_t air_1_0um;
@@ -98,7 +99,7 @@ struct pms_response
     rt_uint16_t air_5_0um;
     rt_uint16_t air_10_0um;
 
-#if PMSXX_S
+#if PKG_USING_PMSXX_ENHANCE
     rt_uint16_t hcho;
     rt_uint16_t temp;
     rt_uint16_t humi;
@@ -114,6 +115,8 @@ struct pms_device
 {
     rt_device_t serial;
     rt_sem_t    rx_sem;
+    rt_sem_t    tx_done;
+    rt_sem_t    ready;
     rt_thread_t rx_tid;
 
     struct pms_response resp;
@@ -126,8 +129,14 @@ typedef struct pms_device *pms_device_t;
 pms_device_t pms_create(const char *uart_name);
 void         pms_delete(pms_device_t dev);
 
-rt_err_t     pms_get_data(pms_device_t dev);
+rt_uint16_t  pms_read(pms_device_t dev, void *buf, rt_uint16_t size);
+rt_uint16_t  pms_wait(pms_device_t dev, void *buf, rt_uint16_t size);
 rt_bool_t    pms_measure(pms_device_t dev);
 rt_err_t     pms_set_mode(pms_device_t dev, pms_mode_t mode);
+
+void         pms_show_command(pms_cmd_t cmd);
+void         pms_show_response(pms_response_t resp);
+void         pms_dump(const char *buf, rt_uint16_t size);
+
 
 #endif /* __PMSXX_H__ */
