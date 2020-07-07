@@ -125,6 +125,7 @@ struct pms_device
     struct pms_response resp;
 
     rt_mutex_t  lock;
+    rt_uint8_t  version;
 };
 typedef struct pms_device *pms_device_t;
 
@@ -132,9 +133,8 @@ typedef struct pms_device *pms_device_t;
 pms_device_t pms_create(const char *uart_name);
 void         pms_delete(pms_device_t dev);
 
-rt_uint16_t  pms_read(pms_device_t dev, void *buf, rt_uint16_t size);
+rt_uint16_t  pms_read(pms_device_t dev, void *buf, rt_uint16_t size, rt_int32_t time);
 rt_uint16_t  pms_wait(pms_device_t dev, void *buf, rt_uint16_t size);
-rt_bool_t    pms_update(pms_device_t dev);
 rt_err_t     pms_set_mode(pms_device_t dev, pms_mode_t mode);
 
 void         pms_show_command(pms_cmd_t cmd);

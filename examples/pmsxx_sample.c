@@ -30,7 +30,7 @@ static void cat_pmsxx_passive(void)
     while (loop--)
     {
         rt_kprintf("\n[%d] Request...\n", loop);
-        pms_read(sensor, &resp, sizeof(resp));
+        pms_read(sensor, &resp, sizeof(resp), RT_WAITING_FOREVER);
         pms_show_response(&resp);
         rt_thread_mdelay(3000);
     }

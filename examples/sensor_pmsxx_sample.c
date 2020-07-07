@@ -41,7 +41,7 @@ static void read_dust_entry(void *args)
             rt_kprintf("Read PMS data failed.\n");
             continue;
         }
-        rt_kprintf("[%d] PM2.5: %d\n", sensor_data.timestamp, sensor_data.data.dust);
+        rt_kprintf("[%d] PM2.5: %d ug/m3\n", sensor_data.timestamp, sensor_data.data.dust);
 
         rt_thread_mdelay(3000);
     }
@@ -110,7 +110,8 @@ static int pms_dump_sample(void)
 }
 
 #ifdef FINSH_USING_MSH
-MSH_CMD_EXPORT(pms_read_sample, read PM2.5);
+MSH_CMD_EXPORT(pms_dump_sample, dump pms response data);
+MSH_CMD_EXPORT(pms_read_sample, read PM2.5 data);
 #endif
 
 static int rt_hw_pms_port(void)

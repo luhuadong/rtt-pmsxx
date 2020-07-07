@@ -29,7 +29,7 @@ static rt_size_t _pmsxx_polling_get_data(struct rt_sensor_device *sensor, void *
     pms_device_t dev = (pms_device_t)sensor->config.intf.user_data;
     struct pms_response resp;
 
-    pms_read(dev, &resp, sizeof(resp));
+    pms_read(dev, &resp, sizeof(resp), RT_WAITING_FOREVER);
 
     sensor_data->type = RT_SENSOR_CLASS_DUST;
     sensor_data->data.dust = dev->resp.PM2_5_atm;
@@ -56,6 +56,12 @@ static rt_err_t pmsxx_control(struct rt_sensor_device *sensor, int cmd, void *ar
     switch (cmd)
     {
     case RT_SENSOR_CTRL_GET_ID:
+        if (args)
+        {
+            rt_uint8_t *hwid = (rt_uint8_t *)args;
+            *hwid = dev->version;
+            result = RT_EOK;
+        }
         break;
     case RT_SENSOR_CTRL_SET_MODE:
         sensor->config.mode = (rt_uint32_t)args & 0xFF;
@@ -88,7 +94,7 @@ static rt_err_t pmsxx_control(struct rt_sensor_device *sensor, int cmd, void *ar
         LOG_D("Custom command : Dump response");
         if (args)
         {
-            rt_uint16_t ret = pms_read(dev, args, sizeof(struct pms_response));
+            rt_uint16_t ret = pms_read(dev, args, sizeof(struct pms_response), rt_tick_from_millisecond(3000));
             if (ret != sizeof(struct pms_response))
                 result = -RT_ERROR;
         }
