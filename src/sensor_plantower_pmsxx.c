@@ -51,6 +51,7 @@ static rt_size_t pmsxx_fetch_data(struct rt_sensor_device *sensor, void *buf, rt
 static rt_err_t pmsxx_control(struct rt_sensor_device *sensor, int cmd, void *args)
 {
     rt_err_t result = RT_EOK;
+    pms_device_t dev = (pms_device_t)sensor->config.intf.user_data;
 
     switch (cmd)
     {
@@ -66,6 +67,31 @@ static rt_err_t pmsxx_control(struct rt_sensor_device *sensor, int cmd, void *ar
     case RT_SENSOR_CTRL_SET_POWER:
         break;
     case RT_SENSOR_CTRL_SELF_TEST:
+        break;
+    case RT_SENSOR_CTRL_PMS_STANDBY:
+        LOG_D("Custom command : Set standby mode");
+        result = pms_set_mode(dev, PMS_MODE_STANDBY);
+        break;
+    case RT_SENSOR_CTRL_PMS_NORMAL:
+        LOG_D("Custom command : Set normal mode");
+        result = pms_set_mode(dev, PMS_MODE_NORMAL);
+        break;
+    case RT_SENSOR_CTRL_PMS_ACTIVE:
+        LOG_D("Custom command : Set active output mode");
+        result = pms_set_mode(dev, PMS_MODE_ACTIVE);
+        break;
+    case RT_SENSOR_CTRL_PMS_PASSIVE:
+        LOG_D("Custom command : Set passive output mode");
+        result = pms_set_mode(dev, PMS_MODE_PASSIVE);
+        break;
+    case RT_SENSOR_CTRL_PMS_DUMP:
+        LOG_D("Custom command : Dump response");
+        if (args)
+        {
+            rt_uint16_t ret = pms_read(dev, args, sizeof(struct pms_response));
+            if (ret != sizeof(struct pms_response))
+                result = -RT_ERROR;
+        }
         break;
     default:
         break;

@@ -38,8 +38,11 @@
 #define PMSA003I             (18)
 
 /* Custom sensor control cmd types */
-#define  RT_SENSOR_CTRL_PMS_ACTIVE               (0x110)   /* Active output mode */
-#define  RT_SENSOR_CTRL_PMS_PASSIVE              (0x111)   /* Passive output mode */
+#define  RT_SENSOR_CTRL_PMS_STANDBY              (0x110)   /* Standby mode (no output) */
+#define  RT_SENSOR_CTRL_PMS_NORMAL               (0x111)   /* Normal  mode */
+#define  RT_SENSOR_CTRL_PMS_ACTIVE               (0x112)   /* Active output mode */
+#define  RT_SENSOR_CTRL_PMS_PASSIVE              (0x113)   /* Passive output mode */
+#define  RT_SENSOR_CTRL_PMS_DUMP                 (0x114)   /* Dump all response */
 
 
 #define FRAME_LEN            32
