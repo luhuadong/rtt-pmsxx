@@ -136,6 +136,7 @@ void         pms_delete(pms_device_t dev);
 rt_uint16_t  pms_read(pms_device_t dev, void *buf, rt_uint16_t size, rt_int32_t time);
 rt_uint16_t  pms_wait(pms_device_t dev, void *buf, rt_uint16_t size);
 rt_err_t     pms_set_mode(pms_device_t dev, pms_mode_t mode);
+rt_bool_t    pms_is_ready(pms_device_t dev);
 
 void         pms_show_command(pms_cmd_t cmd);
 void         pms_show_response(pms_response_t resp);

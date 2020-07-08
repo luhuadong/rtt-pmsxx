@@ -27,6 +27,11 @@ static void cat_pmsxx_passive(void)
         return;
     }
 
+    while (!pms_is_ready(sensor))
+    {
+        rt_thread_mdelay(1000);
+    }
+
     pms_set_mode(sensor, PMS_MODE_NORMAL);
     pms_set_mode(sensor, PMS_MODE_PASSIVE);
 
@@ -55,6 +60,11 @@ static void cat_pmsxx_active(void)
     {
         rt_kprintf("(PMS) Init failed\n");
         return;
+    }
+
+    while (!pms_is_ready(sensor))
+    {
+        rt_thread_mdelay(1000);
     }
 
     pms_set_mode(sensor, PMS_MODE_NORMAL);

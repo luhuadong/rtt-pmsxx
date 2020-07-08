@@ -20,7 +20,7 @@
 
 //#define PKG_USING_PMSXX_DEBUG_SHOW_CMD
 //#define PKG_USING_PMSXX_DEBUG_SHOW_RULER
-//#define PKG_USING_PMSXX_DEBUG_SHOW_RESP
+//#define PKG_USING_PMSXX_DEBUG_DUMP_RESP
 
 #define PMS_SEND_WAIT_TIME             2000
 #define PMS_THREAD_STACK_SIZE          512
@@ -108,10 +108,11 @@ static void pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t size)
     rt_uint16_t sum = 0, i;
     pms_response_t resp = &dev->resp;
 
-#ifdef PKG_USING_PMSXX_DEBUG_SHOW_RESP
+#ifdef PKG_USING_PMSXX_DEBUG_DUMP_RESP
     pms_dump(buf, size);
 #endif
 
+    rt_mutex_take(dev->lock, RT_WAITING_FOREVER);
     rt_memcpy(resp, buf, size);
 
     resp->length     = ntohs(resp->length);
@@ -128,6 +129,7 @@ static void pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t size)
     resp->air_5_0um  = ntohs(resp->air_5_0um);
     resp->air_10_0um = ntohs(resp->air_10_0um);
     resp->checksum   = ntohs(resp->checksum);
+    rt_mutex_release(dev->lock);
 
     for (i = 0; i < (size - 2); i++)
         sum += buf[i];
@@ -231,13 +233,18 @@ rt_uint16_t pms_read(pms_device_t dev, void *buf, rt_uint16_t size, rt_int32_t t
 {
     RT_ASSERT(dev);
 
+    rt_sem_control(dev->ready, RT_IPC_CMD_RESET, RT_NULL);
+
     rt_device_write(dev->serial, 0, &preset_commands[PMS_MODE_READ], sizeof(struct pms_cmd));
     //pms_set_mode(dev, PMS_MODE_READ);
 
     if (RT_EOK != rt_sem_take(dev->ready, time))
         return 0;
 
+    rt_mutex_take(dev->lock, RT_WAITING_FOREVER);
     rt_memcpy(buf, &dev->resp, size);
+    rt_mutex_release(dev->lock);
+
     return size;
 }
 
@@ -246,9 +253,17 @@ rt_uint16_t pms_wait(pms_device_t dev, void *buf, rt_uint16_t size)
     RT_ASSERT(dev);
 
     rt_sem_take(dev->ready, RT_WAITING_FOREVER);
+
+    rt_mutex_take(dev->lock, RT_WAITING_FOREVER);
     rt_memcpy(buf, &dev->resp, size);
+    rt_mutex_release(dev->lock);
 
     return size;
+}
+
+rt_bool_t pms_is_ready(pms_device_t dev)
+{
+    return dev->version == 0x00 ? RT_FALSE : RT_TRUE;
 }
 
 static void sensor_init_entry(void *parameter)
@@ -325,8 +340,17 @@ pms_device_t pms_create(const char *uart_name)
         goto __exit;
     }
 
+    /* init mutex */
+    dev->lock = rt_mutex_create("pms_lock", RT_IPC_FLAG_FIFO);
+    if (dev->lock == RT_NULL)
+    {
+        LOG_E("Can't create mutex for pmsxx device");
+        goto __exit;
+    }
+
     /* create thread */
-    dev->rx_tid = rt_thread_create("pms_rx", pms_recv_thread, dev, 1024, 25, 10);
+    dev->rx_tid = rt_thread_create("pms_rx", pms_recv_thread, (void *)dev, 
+                                   PMS_THREAD_STACK_SIZE, PMS_THREAD_PRIORITY, 10);
     if (dev->rx_tid == RT_NULL)
     {
         LOG_E("Can't create thread for pmsxx device");
@@ -339,7 +363,7 @@ pms_device_t pms_create(const char *uart_name)
     rt_thread_t tid;
 
     tid = rt_thread_create("pms_init", sensor_init_entry, (void *)dev,
-                           PMS_THREAD_STACK_SIZE, PMS_THREAD_PRIORITY, 20);
+                           PMS_THREAD_STACK_SIZE, PMS_THREAD_PRIORITY, 10);
     if (tid)
     {
         rt_thread_startup(tid);
@@ -352,7 +376,7 @@ pms_device_t pms_create(const char *uart_name)
 #else
     sensor_init_entry(dev);
 
-    if (dev->version == 0x00)
+    if (!pms_is_ready(dev))
     {
         LOG_E("Can't receive response from pmsxx device");
         goto __exit;
@@ -363,6 +387,7 @@ pms_device_t pms_create(const char *uart_name)
 
 __exit:
     if (dev->rx_tid) rt_thread_delete(dev->rx_tid);
+    if (dev->lock)   rt_mutex_delete(dev->lock);
     if (dev->rx_sem) rt_sem_delete(dev->rx_sem);
     if (dev->ready)  rt_sem_delete(dev->ready);
     
@@ -384,6 +409,7 @@ void pms_delete(pms_device_t dev)
         rt_sem_delete(dev->ready);
         rt_sem_delete(dev->rx_sem);
         rt_thread_delete(dev->rx_tid);
+        rt_mutex_delete(dev->lock);
         rt_device_close(dev->serial);
         rt_free(dev);
     }
