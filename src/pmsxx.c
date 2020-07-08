@@ -17,11 +17,14 @@
 #define DBG_LVL DBG_INFO
 #include <rtdbg.h>
 
-/*
-#define PKG_USING_PMSXX_SHOW_CMD
-#define PKG_USING_PMSXX_SHOW_RULER
-#define PKG_USING_PMSXX_SHOW_RESP
-*/
+
+//#define PKG_USING_PMSXX_DEBUG_SHOW_CMD
+//#define PKG_USING_PMSXX_DEBUG_SHOW_RULER
+//#define PKG_USING_PMSXX_DEBUG_SHOW_RESP
+
+#define PMS_SEND_WAIT_TIME             2000
+#define PMS_THREAD_STACK_SIZE          512
+#define PMS_THREAD_PRIORITY            (RT_THREAD_PRIORITY_MAX/2)
 
 #define ntohs(x) ((((x)&0x00ffUL) << 8) | (((x)&0xff00UL) >> 8))
 
@@ -60,7 +63,7 @@ void pms_show_response(pms_response_t resp)
 
 void pms_dump(const char *buf, rt_uint16_t size)
 {
-#ifdef PKG_USING_PMSXX_SHOW_RULER
+#ifdef PKG_USING_PMSXX_DEBUG_SHOW_RULER
     rt_kprintf("01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32\n");
 #endif
     for (rt_uint16_t i = 0; i < size; i++)
@@ -105,7 +108,7 @@ static void pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t size)
     rt_uint16_t sum = 0, i;
     pms_response_t resp = &dev->resp;
 
-#ifdef PKG_USING_PMSXX_SHOW_RESP
+#ifdef PKG_USING_PMSXX_DEBUG_SHOW_RESP
     pms_dump(buf, size);
 #endif
 
@@ -216,10 +219,10 @@ rt_err_t pms_set_mode(pms_device_t dev, pms_mode_t mode)
     RT_ASSERT(dev);
 
     rt_device_write(dev->serial, 0, &preset_commands[mode], sizeof(struct pms_cmd));
-#ifdef PKG_USING_PMSXX_SHOW_CMD
+#ifdef PKG_USING_PMSXX_DEBUG_SHOW_CMD
     pms_show_command(&preset_commands[mode]);
 #endif
-    rt_thread_mdelay(1000);
+    rt_thread_mdelay(PMS_SEND_WAIT_TIME);
 
     return RT_EOK;
 }
@@ -228,7 +231,8 @@ rt_uint16_t pms_read(pms_device_t dev, void *buf, rt_uint16_t size, rt_int32_t t
 {
     RT_ASSERT(dev);
 
-    pms_set_mode(dev, PMS_MODE_READ);
+    rt_device_write(dev->serial, 0, &preset_commands[PMS_MODE_READ], sizeof(struct pms_cmd));
+    //pms_set_mode(dev, PMS_MODE_READ);
 
     if (RT_EOK != rt_sem_take(dev->ready, time))
         return 0;
@@ -247,8 +251,10 @@ rt_uint16_t pms_wait(pms_device_t dev, void *buf, rt_uint16_t size)
     return size;
 }
 
-static rt_err_t sensor_init(pms_device_t dev)
+static void sensor_init_entry(void *parameter)
 {
+    pms_device_t dev = (pms_device_t)parameter;
+
     rt_uint16_t ret;
     struct pms_response resp;
 
@@ -265,11 +271,9 @@ static rt_err_t sensor_init(pms_device_t dev)
 
     ret = pms_read(dev, &resp, sizeof(resp), rt_tick_from_millisecond(3000));
     if (ret != sizeof(resp))
-        return -RT_ERROR;
+        dev->version = 0x00;
     else
         dev->version = resp.version;
-
-    return RT_EOK;
 }
 
 /**
@@ -331,11 +335,29 @@ pms_device_t pms_create(const char *uart_name)
 
     rt_thread_startup(dev->rx_tid);
 
-    if (RT_EOK != sensor_init(dev))
+#ifdef PKG_USING_PMSXX_INIT_ASYN
+    rt_thread_t tid;
+
+    tid = rt_thread_create("pms_init", sensor_init_entry, (void *)dev,
+                           PMS_THREAD_STACK_SIZE, PMS_THREAD_PRIORITY, 20);
+    if (tid)
+    {
+        rt_thread_startup(tid);
+    }
+    else
+    {
+        LOG_E("create sensor init thread failed.");
+        goto __exit;
+    }
+#else
+    sensor_init_entry(dev);
+
+    if (dev->version == 0x00)
     {
         LOG_E("Can't receive response from pmsxx device");
         goto __exit;
     }
+#endif /* PKG_USING_PMSXX_INIT_ASYN */
 
     return dev;
 

@@ -27,6 +27,9 @@ static void cat_pmsxx_passive(void)
         return;
     }
 
+    pms_set_mode(sensor, PMS_MODE_NORMAL);
+    pms_set_mode(sensor, PMS_MODE_PASSIVE);
+
     while (loop--)
     {
         rt_kprintf("\n[%d] Request...\n", loop);
