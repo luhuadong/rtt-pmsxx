@@ -233,7 +233,7 @@ rt_err_t rt_hw_pms_init(const char *name, struct rt_sensor_config *cfg);
 | RT_EOK    | 创建成功        |
 | -RT_ERROR | 创建失败        |
 
-注册示例
+#### 初始化示例
 
 ```c
 #define PMSXX_UART_NAME      "uart3"
@@ -249,6 +249,45 @@ static int rt_hw_pms_port(void)
     return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_pms_port);
+```
+
+
+
+#### 读取示例
+
+由于攀藤 PMS 系列传感器输出的数据中包含多种不同粒径的悬浮颗粒物的浓度和单位体积内的数量等数据。考虑 PM2.5 指标较为重要，因此使用 RT-Thread 设备驱动接口 rt_device_read 读取数据时，默认返回的是大气环境中的 PM2.5 浓度。
+
+```c
+static void pms_read_sample(void)
+{
+    struct rt_sensor_data sensor_data;
+
+    rt_device_t dev = rt_device_find("uart3");
+    rt_device_open(dev, RT_DEVICE_FLAG_RDWR);
+    
+    rt_device_read(dev, 0, &sensor_data, 1);
+    rt_kprintf("PM2.5: %d ug/m3\n", sensor_data.data.dust);
+
+    rt_device_close(dev);
+}
+```
+
+如需使用更多数据，请使用 rt_device_control 接口，命令字为 `RT_SENSOR_CTRL_PMS_DUMP`。
+
+```c
+static void pms_dump_sample(void)
+{
+    struct pms_response resp;
+    struct rt_sensor_data sensor_data;
+
+    rt_device_t dev = rt_device_find("uart3");
+    rt_device_open(dev, RT_DEVICE_FLAG_RDWR);
+    
+    rt_device_control(dev, RT_SENSOR_CTRL_PMS_DUMP, &resp);
+    pms_show_response(&resp);
+
+    rt_device_close(dev);
+}
 ```
 
 
