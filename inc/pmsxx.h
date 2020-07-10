@@ -47,6 +47,7 @@
 
 #define FRAME_LEN            32
 #define FRAME_LEN_MAX        40
+#define PMSXX_FRAME_LEN      FRAME_LEN_MAX
 
 #define FRAME_START1         0x42
 #define FRAME_START2         0x4d
@@ -117,9 +118,13 @@ typedef struct pms_response *pms_response_t;
 struct pms_device
 {
     rt_device_t serial;
+#ifdef PKG_USING_PMSXX_UART_DMA
+    rt_mq_t     rx_mq;
+#else
     rt_sem_t    rx_sem;
+#endif
     rt_sem_t    tx_done;
-    rt_sem_t    ready;
+    rt_sem_t    ack;
     rt_thread_t rx_tid;
 
     struct pms_response resp;

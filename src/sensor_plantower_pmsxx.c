@@ -126,7 +126,7 @@ static rt_err_t _pmsxx_init(struct rt_sensor_intf *intf)
         pms_device_t dev = pms_create(intf->dev_name);
         if (!dev)
         {
-            LOG_E("PMSxx sensor init failed\n");
+            LOG_E("PMSxx sensor init failed");
             return -RT_ERROR;
         }
         intf->user_data = (void *)dev;
