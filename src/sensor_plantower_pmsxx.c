@@ -16,11 +16,13 @@
 #include <rtdbg.h>
 
 /* range */
-#define SENSOR_DUST_RANGE_MIN          (0)
-#define SENSOR_DUST_RANGE_MAX          (1000)
+#define SENSOR_DUST_RANGE_MIN             (0)
+#define SENSOR_DUST_RANGE_MAX             (1000)
 
 /* minial period (ms) */
-#define SENSOR_DUST_PERIOD_MIN         (200)
+#define SENSOR_DUST_PERIOD_MIN            (200)
+
+#define PMS_READ_WAIT_TIME                (3000)
 
 
 static rt_size_t _pmsxx_polling_get_data(struct rt_sensor_device *sensor, void *buf)
@@ -28,8 +30,11 @@ static rt_size_t _pmsxx_polling_get_data(struct rt_sensor_device *sensor, void *
     struct rt_sensor_data *sensor_data = buf;
     pms_device_t dev = (pms_device_t)sensor->config.intf.user_data;
     struct pms_response resp;
+    rt_uint16_t ret;
 
-    pms_read(dev, &resp, sizeof(resp), RT_WAITING_FOREVER);
+    ret = pms_read(dev, &resp, sizeof(resp), rt_tick_from_millisecond(PMS_READ_WAIT_TIME));
+    if (ret != sizeof(resp))
+        return 0;
 
     sensor_data->type = RT_SENSOR_CLASS_DUST;
     sensor_data->data.dust = dev->resp.PM2_5_atm;
@@ -94,7 +99,7 @@ static rt_err_t pmsxx_control(struct rt_sensor_device *sensor, int cmd, void *ar
         LOG_D("Custom command : Dump response");
         if (args)
         {
-            rt_uint16_t ret = pms_read(dev, args, sizeof(struct pms_response), rt_tick_from_millisecond(3000));
+            rt_uint16_t ret = pms_read(dev, args, sizeof(struct pms_response), rt_tick_from_millisecond(PMS_READ_WAIT_TIME));
             if (ret != sizeof(struct pms_response))
                 result = -RT_ERROR;
         }

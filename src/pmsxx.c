@@ -18,21 +18,11 @@
 #include <rtdbg.h>
 
 
-#define PKG_USING_PMSXX_DEBUG_SHOW_CMD
-//#define PKG_USING_PMSXX_DEBUG_SHOW_RULER
-#define PKG_USING_PMSXX_DEBUG_DUMP_RESP
-
-#define PMS_SEND_WAIT_TIME             2000
 #define PMS_THREAD_STACK_SIZE          1024
 #define PMS_THREAD_PRIORITY            (RT_THREAD_PRIORITY_MAX/2)
 
 #define ntohs(x) ((((x)&0x00ffUL) << 8) | (((x)&0xff00UL) >> 8))
 
-struct rx_msg
-{
-    rt_device_t dev;
-    rt_size_t   size;
-};
 
 static struct pms_cmd preset_commands[] = {
     {0x42, 0x4d, 0xe2, 0x00, 0x00, 0x01, 0x71}, /* Read in passive mode */
@@ -70,7 +60,9 @@ void pms_show_response(pms_response_t resp)
 void pms_dump(const char *buf, rt_uint16_t size)
 {
 #ifdef PKG_USING_PMSXX_DEBUG_SHOW_RULER
+    rt_kprintf("_______________________________________________________________________________________________\n");
     rt_kprintf("01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32\n");
+    rt_kprintf("-----------------------------------------------------------------------------------------------\n");
 #endif
     for (rt_uint16_t i = 0; i < size; i++)
     {
@@ -88,13 +80,9 @@ static rt_err_t pms_uart_input(rt_device_t dev, rt_size_t size)
     pms_device_t pms = (pms_device_t)dev->user_data;
 
 #ifdef PKG_USING_PMSXX_UART_DMA
-    struct rx_msg msg;
-    msg.dev  = dev;
-    msg.size = size;
-    rt_mq_send(pms->rx_mq, &msg, sizeof(msg));
+    if (pms) rt_mb_send(pms->rx_mb, size);
 #else
-    if (pms)
-        rt_sem_release(pms->rx_sem);
+    if (pms) rt_sem_release(pms->rx_sem);
 #endif
 
     return RT_EOK;
@@ -117,6 +105,9 @@ static rt_bool_t is_little_endian(void)
 static rt_err_t pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t size)
 {
     RT_ASSERT(dev);
+
+    if (size < FRAME_LEN_MIN || size > FRAME_LEN_MAX)
+        return -RT_ERROR;
 
     rt_uint16_t sum = 0, i;
     pms_response_t resp = &dev->resp;
@@ -153,7 +144,10 @@ static rt_err_t pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t s
         return -RT_ERROR;
     }
 
-    rt_sem_release(dev->ack);
+#ifdef PKG_USING_PMSXX_DEBUG_SHOW_RESP
+    pms_show_response(resp);
+#endif
+
     return RT_EOK;
 }
 
@@ -162,22 +156,23 @@ static void pms_recv_thread_entry(void *parameter)
 {
     pms_device_t dev = (pms_device_t)parameter;
 
-    struct rx_msg msg;
-    rt_err_t      result;
-    rt_uint32_t   rx_length;
-    rt_uint8_t    rx_buffer[RT_SERIAL_RB_BUFSZ + 1];
+    rt_ubase_t    size;
+    rt_err_t      ret;
+    rt_uint32_t   len;
+    rt_uint8_t    buf[RT_SERIAL_RB_BUFSZ];
     
     while (1)
     {
-        rt_memset(&msg, 0, sizeof(msg));
-        result = rt_mq_recv(dev->rx_mq, &msg, sizeof(msg), RT_WAITING_FOREVER);
-        if (result == RT_EOK)
+        ret = rt_mb_recv(dev->rx_mb, &size, RT_WAITING_FOREVER);
+        if (ret == RT_EOK)
         {
-            rx_length = rt_device_read(msg.dev, 0, rx_buffer, msg.size);
-            LOG_E("[recv thread] Receive %d bytes, read %d bytes", msg.size, rx_length);
-            rx_buffer[rx_length] = '\0';
+            len = rt_device_read(dev->serial, 0, buf, size);
+            LOG_D("[recv thread] Receive %d bytes, read %d bytes", size, len);
 
-            pms_check_frame(dev, rx_buffer, rx_length);
+            if (RT_EOK == pms_check_frame(dev, buf, len))
+            {
+                rt_sem_release(dev->ack);
+            }
         }
     }
 }
@@ -244,7 +239,10 @@ static void pms_recv_thread_entry(void *parameter)
             {
                 state = PMS_FRAME_END;
                 idx = 0;
-                pms_check_frame(dev, buf, frame_len + 4);
+                if (RT_EOK == pms_check_frame(dev, buf, frame_len + 4))
+                {
+                    rt_sem_release(dev->ack);
+                }
             }
         }
         break;
@@ -264,7 +262,7 @@ rt_err_t pms_set_mode(pms_device_t dev, pms_mode_t mode)
 #ifdef PKG_USING_PMSXX_DEBUG_SHOW_CMD
     pms_show_command(&preset_commands[mode]);
 #endif
-    rt_thread_mdelay(PMS_SEND_WAIT_TIME);
+    rt_thread_mdelay(PKG_USING_PMSXX_SEND_WAIT_TIME);
 
     return RT_EOK;
 }
@@ -383,10 +381,10 @@ pms_device_t pms_create(const char *uart_name)
 
 #ifdef PKG_USING_PMSXX_UART_DMA
     /* init messagequeue */
-    dev->rx_mq = rt_mq_create("pms_rx", sizeof(struct rx_msg), 256, RT_IPC_FLAG_FIFO);
-    if (dev->rx_mq == RT_NULL)
+    dev->rx_mb = rt_mb_create("pms_rx", 16, RT_IPC_FLAG_FIFO);
+    if (dev->rx_mb == RT_NULL)
     {
-        LOG_E("Can't create messagequeue for pmsxx device");
+        LOG_E("Can't create mailbox for pmsxx device");
         goto __exit;
     }
 #else
@@ -455,7 +453,7 @@ __exit:
     if (dev->rx_tid)   rt_thread_delete(dev->rx_tid);
     if (dev->lock)     rt_mutex_delete(dev->lock);
 #ifdef PKG_USING_PMSXX_UART_DMA
-    if (dev->rx_mq)    rt_mq_delete(dev->rx_mq);
+    if (dev->rx_mb)    rt_mb_delete(dev->rx_mb);
 #else
     if (dev->rx_sem)   rt_sem_delete(dev->rx_sem);
 #endif
@@ -479,7 +477,7 @@ void pms_delete(pms_device_t dev)
         
         rt_sem_delete(dev->ack);
 #ifdef PKG_USING_PMSXX_UART_DMA
-        rt_mq_delete(dev->rx_mq);
+        rt_mb_delete(dev->rx_mb);
 #else
         rt_sem_delete(dev->rx_sem);
 #endif
