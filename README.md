@@ -13,10 +13,11 @@ PMS 系列传感器基于激光散射原理，可连续采集并计算单位体�
 
 ### 1.1 特性
 
-- 支持多实例。
-- 支持静态和动态分配内存。
-- 支持 sensor 设备驱动框架。
-- 线程安全。
+- 支持多实例
+- 支持静态和动态分配内存
+- 支持 sensor 设备驱动框架
+- 支持串口中断和 DMA 模式
+- 线程安全
 
 
 
@@ -56,7 +57,7 @@ pmsxx 软件包遵循 Apache license v2.0 许可，详见 `LICENSE` 文件。
 ### 1.5 依赖
 
 - RT-Thread 4.0+
-- 使用动态创建方式需要开启动态内存管理模块
+- 使用动态创建方式需要开启动态内存管理模块（`RT_USING_HEAP`）
 - 使用 sensor 设备接口需要开启 sensor 设备驱动框架模块
 
 
@@ -69,7 +70,7 @@ pmsxx 软件包遵循 Apache license v2.0 许可，详见 `LICENSE` 文件。
 RT-Thread online packages --->
     peripheral libraries and drivers --->
         [*] sensors drivers  --->
-            [*] PMSxx: Plantower PMSxx family sensor driver.
+            [*] PMSxx: Plantower pms serial PM2.5 sensor driver.
 ```
 
 然后让 RT-Thread 的包管理器自动更新，或者使用 `pkgs --update` 命令更新包到 BSP 中。
@@ -80,15 +81,39 @@ RT-Thread online packages --->
 
 ### 3.1 版本说明
 
-| 版本   | 说明                                   |
-| ------ | -------------------------------------- |
-| latest | 支持主动式和被动式工作模式，待支持 DMA |
+| 版本   | 说明                                                |
+| ------ | --------------------------------------------------- |
+| latest | 支持主动式和被动式工作模式，支持串口中断和 DMA 模式 |
 
 目前处于公测阶段，建议开发者使用 latest 版本。
 
 
 
 ### 3.2 配置选项
+
+```
+(2000) The waiting time after send command (ms) 
+[ ]   Enable initialize by thread
+[ ]   Enable serial device DMA RX
+[ ]   Debug command and response
+[ ]     Show commands
+[ ]     Show response data
+[ ]     Dump raw response data
+[ ]       Show ruler for raw response data
+[ ]   Enable pmsxx sample
+```
+
+选项说明：
+
+- 串口发送命令等待时间（并非所有模式设置命令都有响应，建议设置此参数，避免设置失败）
+- 使能初始化线程（该软件包会将 pms 传感器设置为被动模式，使能该选项可以消除等待时间的影响）
+- 使能串口 DMA 功能（开启该选项时请确保所使用的串口支持 DMA，并且已开启相关配置）
+- 调试命令和响应
+    - 当设置传感器模式时，在 msh 终端显示该命令内容
+    - 当接收到响应数据时，在 msh 终端显示该响应内容
+    - 当接收到响应数据时，以原始数据的形式显示
+        - 显示标尺，以方便识别原始数据
+- 使能 pmsxx 示例代码
 
 
 
