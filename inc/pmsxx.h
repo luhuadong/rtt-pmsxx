@@ -15,7 +15,7 @@
 #include <rtdevice.h>
 #include <sensor.h>
 
-#define PMSLIB_VERSION       "0.0.1"
+#define PMSLIB_VERSION       "0.1.1"
 
 #define PMS1003              (0)
 #define PMS3003              (1)
@@ -44,12 +44,13 @@
 #define  RT_SENSOR_CTRL_PMS_PASSIVE              (0x113)   /* Passive output mode */
 #define  RT_SENSOR_CTRL_PMS_DUMP                 (0x114)   /* Dump all response */
 
+#define PMS_READ_WAIT_TIME                       (3000)
 
-#define FRAME_LEN_MIN        32
-#define FRAME_LEN_MAX        40
+#define FRAME_LEN_MIN                            32
+#define FRAME_LEN_MAX                            40
 
-#define FRAME_START1         0x42
-#define FRAME_START2         0x4d
+#define FRAME_START1                             0x42
+#define FRAME_START2                             0x4d
 
 typedef enum
 {

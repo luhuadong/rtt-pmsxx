@@ -22,8 +22,6 @@
 /* minial period (ms) */
 #define SENSOR_DUST_PERIOD_MIN            (200)
 
-#define PMS_READ_WAIT_TIME                (3000)
-
 
 static rt_size_t _pmsxx_polling_get_data(struct rt_sensor_device *sensor, void *buf)
 {

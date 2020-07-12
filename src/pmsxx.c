@@ -36,7 +36,7 @@ void pms_show_command(pms_cmd_t cmd)
 {
     RT_ASSERT(cmd);
 
-    rt_kprintf("+-----------------------------------------------------+\n");
+    rt_kprintf("\n+-----------------------------------------------------+\n");
     rt_kprintf("| HEAD1 | HEAD2 |  CMD  | DATAH | DATAL | LRCH | LRCL |\n");
     rt_kprintf(" ----------------------------------------------------- \n");
     rt_kprintf("|   %02x  |   %02x  |   %02x  |   %02x  |   %02x  |  %02x  |  %02x  |\n", 
@@ -54,13 +54,13 @@ void pms_show_response(pms_response_t resp)
     rt_kprintf("|  atm.  | PM1.0 = %-4d | PM2.5 = %-4d | PM10  = %-4d |\n", resp->PM1_0_atm, resp->PM2_5_atm, resp->PM10_0_atm);
     rt_kprintf("|        | 0.3um = %-4d | 0.5um = %-4d | 1.0um = %-4d |\n", resp->air_0_3um, resp->air_0_5um, resp->air_1_0um);
     rt_kprintf("|        | 2.5um = %-4d | 5.0um = %-4d | 10um  = %-4d |\n", resp->air_2_5um, resp->air_5_0um, resp->air_10_0um);
-    rt_kprintf("+-----------------------------------------------------+\n\n");
+    rt_kprintf("+-----------------------------------------------------+\n");
 }
 
 void pms_dump(const char *buf, rt_uint16_t size)
 {
 #ifdef PKG_USING_PMSXX_DEBUG_SHOW_RULER
-    rt_kprintf("_______________________________________________________________________________________________\n");
+    rt_kprintf("\n_______________________________________________________________________________________________\n");
     rt_kprintf("01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32\n");
     rt_kprintf("-----------------------------------------------------------------------------------------------\n");
 #endif
@@ -375,7 +375,7 @@ static void sensor_init_entry(void *parameter)
     pms_set_mode(dev, PMS_MODE_NORMAL);
     pms_set_mode(dev, PMS_MODE_PASSIVE);
 
-    ret = pms_read(dev, &resp, sizeof(resp), rt_tick_from_millisecond(3000));
+    ret = pms_read(dev, &resp, sizeof(resp), rt_tick_from_millisecond(PMS_READ_WAIT_TIME));
     if (ret != sizeof(resp))
     {
         LOG_E("Can't receive response from pmsxx device");
@@ -429,19 +429,6 @@ pms_device_t pms_create(const char *uart_name)
     dev->serial->user_data = (void *)dev;
 
 #ifdef PKG_USING_PMSXX_UART_DMA
-    ret = rt_device_open(dev->serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_DMA_RX);
-#else
-    ret = rt_device_open(dev->serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
-#endif
-    if (ret != RT_EOK)
-    {
-        LOG_E("Can't open '%s' serial device", uart_name);
-        goto __exit;
-    }
-
-    rt_device_set_rx_indicate(dev->serial, pms_uart_input);
-
-#ifdef PKG_USING_PMSXX_UART_DMA
     /* init messagequeue */
     dev->rx_mb = rt_mb_create("pms_rx", 16, RT_IPC_FLAG_FIFO);
     if (dev->rx_mb == RT_NULL)
@@ -459,7 +446,7 @@ pms_device_t pms_create(const char *uart_name)
     }
 #endif
 
-    dev->ack  = rt_sem_create("pms_rd", 0, RT_IPC_FLAG_FIFO);
+    dev->ack  = rt_sem_create("pms_ack", 0, RT_IPC_FLAG_FIFO);
     if (dev->ack == RT_NULL)
     {
         LOG_E("Can't create semaphore for pmsxx device");
@@ -485,6 +472,21 @@ pms_device_t pms_create(const char *uart_name)
 
     rt_thread_startup(dev->rx_tid);
 
+    /* open UART device and enable UART RX */
+#ifdef PKG_USING_PMSXX_UART_DMA
+    ret = rt_device_open(dev->serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_DMA_RX);
+#else
+    ret = rt_device_open(dev->serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
+#endif
+    if (ret != RT_EOK)
+    {
+        LOG_E("Can't open '%s' serial device", uart_name);
+        goto __exit;
+    }
+
+    rt_device_set_rx_indicate(dev->serial, pms_uart_input);
+
+    /* run init thread or call init function */
 #ifdef PKG_USING_PMSXX_INIT_ASYN
     rt_thread_t tid;
 

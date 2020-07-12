@@ -57,7 +57,7 @@ static void dump_dust_entry(void *args)
     rt_err_t ret;
 
     sensor = rt_device_find(args);
-    if (!sensor) 
+    if (!sensor)
     {
         rt_kprintf("Can't find PMS device.\n");
         return;
