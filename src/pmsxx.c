@@ -155,23 +155,85 @@ static rt_err_t pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t s
 static void pms_recv_thread_entry(void *parameter)
 {
     pms_device_t dev = (pms_device_t)parameter;
-
-    rt_ubase_t    size;
-    rt_err_t      ret;
-    rt_uint32_t   len;
-    rt_uint8_t    buf[RT_SERIAL_RB_BUFSZ];
+    
+    char ch;
+    pms_frame_t state = PMS_FRAME_END;
+    rt_uint16_t idx = 0;
+    rt_uint16_t frame_len = 0;
+    rt_uint16_t frame_idx = 0;
+    rt_ubase_t  size;
+    rt_uint32_t len;
+    rt_uint8_t  buf[RT_SERIAL_RB_BUFSZ];
     
     while (1)
     {
-        ret = rt_mb_recv(dev->rx_mb, &size, RT_WAITING_FOREVER);
-        if (ret == RT_EOK)
+        if (RT_EOK != rt_mb_recv(dev->rx_mb, &size, RT_WAITING_FOREVER))
         {
-            len = rt_device_read(dev->serial, 0, buf, size);
-            LOG_D("[recv thread] Receive %d bytes, read %d bytes", size, len);
+            continue;
+        }
 
-            if (RT_EOK == pms_check_frame(dev, buf, len))
+        len = rt_device_read(dev->serial, 0, buf+idx, size);
+        LOG_D("[recv thread] Receive %d bytes, read %d bytes", size, len);
+
+        for (rt_uint32_t i=0; i<len; i++)
+        {
+            ch = buf[idx];
+            switch (state)
             {
-                rt_sem_release(dev->ack);
+            case PMS_FRAME_END:
+                if (ch == FRAME_START1)
+                {
+                    idx = 1;
+                    state = PMS_FRAME_HEAD;
+                }
+                break;
+            case PMS_FRAME_HEAD:
+                if (ch == FRAME_START2)
+                {
+                    idx++;
+                    state = PMS_FRAME_HEAD_ACK;
+                }
+                break;
+            case PMS_FRAME_HEAD_ACK:
+            {
+                idx++;
+                state = PMS_FRAME_LENGTH;
+            }
+            break;
+            case PMS_FRAME_LENGTH:
+            {
+                idx++;
+                frame_len = buf[idx - 2] << 8 | buf[idx - 1];
+                frame_idx = 0;
+
+                if (frame_len <= FRAME_LEN_MAX - 4)
+                    state = PMS_FRAME_PAYLOAD;
+                else
+                    state = PMS_FRAME_END;
+            }
+            break;
+            case PMS_FRAME_PAYLOAD:
+            {
+                idx++;
+                frame_idx++;
+
+                if (frame_idx >= frame_len)
+                {
+                    state = PMS_FRAME_END;
+                    idx = 0;
+                    if (RT_EOK == pms_check_frame(dev, buf, frame_len + 4))
+                    {
+                        rt_sem_release(dev->ack);
+                    }
+                }
+            }
+            break;
+            default:
+            {
+                idx = 0;
+                state = PMS_FRAME_END;
+            }
+            break;
             }
         }
     }
