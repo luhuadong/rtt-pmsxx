@@ -15,27 +15,7 @@
 #include <rtdevice.h>
 #include <sensor.h>
 
-#define PMSLIB_VERSION       "0.1.1"
-
-#define PMS1003              (0)
-#define PMS3003              (1)
-#define PMS3003P             (2)
-#define PMS5003              (3)
-#define PMS5003P             (4)
-#define PMS5003T             (5)
-#define PMS5003S             (6)
-#define PMS5003ST            (7)
-#define PMS5003I             (8)
-#define PMS6003              (9)
-#define PMS6003P             (10)
-#define PMS7003              (11)
-#define PMS7003P             (12)
-#define PMS7003I             (13)
-#define PMS7003M             (14)
-#define PMS9003M             (15)
-#define PMSA003              (16)
-#define PMSA003P             (17)
-#define PMSA003I             (18)
+#define PMSLIB_VERSION       "0.2.0"
 
 /* Custom sensor control cmd types */
 #define  RT_SENSOR_CTRL_PMS_STANDBY              (0x110)   /* Standby mode (no output) */
@@ -46,11 +26,11 @@
 
 #define PMS_READ_WAIT_TIME                       (3000)
 
-#define FRAME_LEN_MIN                            32
-#define FRAME_LEN_MAX                            40
+#define FRAME_LEN_MIN                            (32)
+#define FRAME_LEN_MAX                            (40)
 
-#define FRAME_START1                             0x42
-#define FRAME_START2                             0x4d
+#define FRAME_START1                             (0x42)
+#define FRAME_START2                             (0x4d)
 
 typedef enum
 {
@@ -103,10 +83,11 @@ struct pms_response
     rt_uint16_t air_5_0um;
     rt_uint16_t air_10_0um;
 
-#if PKG_USING_PMSXX_ENHANCE
+#ifdef PKG_USING_PMSXX_ENHANCED
     rt_uint16_t hcho;
     rt_uint16_t temp;
     rt_uint16_t humi;
+    rt_uint16_t reserve;
 #endif
 
     rt_uint8_t  version;
@@ -129,8 +110,8 @@ struct pms_device
 
     struct pms_response resp;
 
-    rt_mutex_t  lock;
-    rt_uint8_t  version;
+    rt_mutex_t   lock;
+    rt_uint8_t   version;
 };
 typedef struct pms_device *pms_device_t;
 

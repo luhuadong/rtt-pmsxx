@@ -13,7 +13,11 @@
 #include <board.h>
 #include "pmsxx.h"
 
-#define PMSXX_UART_NAME      "uart3"
+#ifndef PKG_USING_PMSXX_SAMPLE_UART
+#define PMSXX_UART_NAME                    "uart3"
+#else
+#define PMSXX_UART_NAME                    PKG_USING_PMSXX_SAMPLE_UART
+#endif
 
 /* cat_pmsxx_passive */
 static void cat_pmsxx_passive(void)

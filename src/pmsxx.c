@@ -48,6 +48,7 @@ void pms_show_response(pms_response_t resp)
 {
     RT_ASSERT(resp);
 
+#ifdef PKG_USING_PMSXX_BASIC
     rt_kprintf("\nResponse => len: %d bytes, version: %02X, Error: %02X\n", resp->length+4, resp->version, resp->errorCode);
     rt_kprintf("+-----------------------------------------------------+\n");
     rt_kprintf("|  CF=1  | PM1.0 = %-4d | PM2.5 = %-4d | PM10  = %-4d |\n", resp->PM1_0_CF1, resp->PM2_5_CF1, resp->PM10_0_CF1);
@@ -55,14 +56,32 @@ void pms_show_response(pms_response_t resp)
     rt_kprintf("|        | 0.3um = %-4d | 0.5um = %-4d | 1.0um = %-4d |\n", resp->air_0_3um, resp->air_0_5um, resp->air_1_0um);
     rt_kprintf("|        | 2.5um = %-4d | 5.0um = %-4d | 10um  = %-4d |\n", resp->air_2_5um, resp->air_5_0um, resp->air_10_0um);
     rt_kprintf("+-----------------------------------------------------+\n");
+#endif
+#ifdef PKG_USING_PMSXX_ENHANCED
+    rt_kprintf("\nResponse => len: %d bytes, version: %02X, Error: %02X\n", resp->length+4, resp->version, resp->errorCode);
+    rt_kprintf("+-----------------------------------------------------+\n");
+    rt_kprintf("|  CF=1  | PM1.0 = %-4d | PM2.5 = %-4d | PM10  = %-4d |\n", resp->PM1_0_CF1, resp->PM2_5_CF1, resp->PM10_0_CF1);
+    rt_kprintf("|  atm.  | PM1.0 = %-4d | PM2.5 = %-4d | PM10  = %-4d |\n", resp->PM1_0_atm, resp->PM2_5_atm, resp->PM10_0_atm);
+    rt_kprintf("|        | 0.3um = %-4d | 0.5um = %-4d | 1.0um = %-4d |\n", resp->air_0_3um, resp->air_0_5um, resp->air_1_0um);
+    rt_kprintf("|        | 2.5um = %-4d | 5.0um = %-4d | 10um  = %-4d |\n", resp->air_2_5um, resp->air_5_0um, resp->air_10_0um);
+    rt_kprintf("| extra  | hcho  = %-4d | temp  = %-4d | humi  = %-4d |\n", resp->hcho, resp->temp, resp->humi);
+    rt_kprintf("+-----------------------------------------------------+\n");
+#endif
 }
 
 void pms_dump(const char *buf, rt_uint16_t size)
 {
 #ifdef PKG_USING_PMSXX_DEBUG_SHOW_RULER
+#ifdef PKG_USING_PMSXX_BASIC
     rt_kprintf("\n_______________________________________________________________________________________________\n");
     rt_kprintf("01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32\n");
     rt_kprintf("-----------------------------------------------------------------------------------------------\n");
+#endif
+#ifdef PKG_USING_PMSXX_ENHANCED
+    rt_kprintf("\n_______________________________________________________________________________________________________________________\n");
+    rt_kprintf("01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40\n");
+    rt_kprintf("-----------------------------------------------------------------------------------------------------------------------\n");
+#endif
 #endif
     for (rt_uint16_t i = 0; i < size; i++)
     {
@@ -132,6 +151,11 @@ static rt_err_t pms_check_frame(pms_device_t dev, const char *buf, rt_uint16_t s
     resp->air_2_5um  = ntohs(resp->air_2_5um);
     resp->air_5_0um  = ntohs(resp->air_5_0um);
     resp->air_10_0um = ntohs(resp->air_10_0um);
+#ifdef PKG_USING_PMSXX_ENHANCED
+    resp->hcho       = ntohs(resp->hcho);
+    resp->temp       = ntohs(resp->temp);
+    resp->humi       = ntohs(resp->humi);
+#endif
     resp->checksum   = ntohs(resp->checksum);
     rt_mutex_release(dev->lock);
 
