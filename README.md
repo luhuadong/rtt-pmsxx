@@ -92,6 +92,10 @@ RT-Thread online packages --->
 ### 3.2 配置选项
 
 ```
+--- PMSxx: Plantower pms serial PM2.5 sensor driver.
+      Select pms sensor type (Basic)  --->
+        (X) Basic
+        ( ) Enhanced
 (2000) The waiting time after send command (ms) 
 [ ]   Enable initialize by thread
 [ ]   Enable serial device DMA RX
@@ -101,10 +105,14 @@ RT-Thread online packages --->
 [ ]     Dump raw response data
 [ ]       Show ruler for raw response data
 [ ]   Enable pmsxx sample
+(uart3) Select uart device name
 ```
 
-选项说明：
+**选项说明：**
 
+- PMS 传感器类型
+    - 基础型（包括 PMS1003/PMS3003/PMS5003/PMS7003/PMS9003/PMSA003 等）
+    - 增强型（比如 PMS5003ST）
 - 串口发送命令等待时间（并非所有模式设置命令都有响应，建议设置此参数，避免设置失败）
 - 使能初始化线程（该软件包会将 pms 传感器设置为被动模式，使能该选项可以消除等待时间的影响）
 - 使能串口 DMA 功能（开启该选项时请确保所使用的串口支持 DMA，并且已开启相关配置）
@@ -114,6 +122,7 @@ RT-Thread online packages --->
     - 当接收到响应数据时，以原始数据的形式显示
         - 显示标尺，以方便识别原始数据
 - 使能 pmsxx 示例代码
+    - 设置示例的串口设备名称（默认为 uart3）
 
 
 
@@ -320,8 +329,8 @@ static void pms_dump_sample(void)
 ## 5、注意事项
 
 1. 为传感器对象提供静态创建和动态创建两种方式，如果使用动态创建，请记得在使用完毕释放对应的内存空间。
-2. PMS 系列传感器上电默认进入主动式数据传输模式，如需使用被动式（主机轮询），请在传感器初始化后切换工作模式。
-3. PMS 系列传感器的增强版支持采集额外的环境数据，比如温度、湿度、甲醛浓度等，相关兼容工作将在后续进行。
+2. PMS 系列传感器上电默认进入主动式数据传输模式，使用 pmsxx 软件包初始化时会将其设置为被动式，您可以在传感器初始化后切换工作模式。
+3. 目前支持基础版和增强版两类 PMS 传感器，基础版传输协议为 32 字节，增强版为 40 字节，增加了温度、湿度、甲醛浓度等数据。
 
 
 
