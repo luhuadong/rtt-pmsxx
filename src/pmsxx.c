@@ -13,8 +13,8 @@
 #include <string.h>
 #include "pmsxx.h"
 
-#define DBG_TAG "sensor.plantower.pms"
-#define DBG_LVL DBG_INFO
+#define DBG_TAG                        "sensor.plantower.pms"
+#define DBG_LVL                        DBG_LOG
 #include <rtdbg.h>
 
 
