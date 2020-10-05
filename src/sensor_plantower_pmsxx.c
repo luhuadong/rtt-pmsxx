@@ -12,7 +12,11 @@
 #include "pmsxx.h"
 
 #define DBG_TAG                           "sensor.plantower.pms"
+#ifdef PKG_USING_PMSXX_DEBUG
 #define DBG_LVL                           DBG_LOG
+#else
+#define DBG_LVL                           DBG_ERROR
+#endif
 #include <rtdbg.h>
 
 /* range */

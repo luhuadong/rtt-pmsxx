@@ -14,9 +14,12 @@
 #include "pmsxx.h"
 
 #define DBG_TAG                        "sensor.plantower.pms"
+#ifdef PKG_USING_PMSXX_DEBUG
 #define DBG_LVL                        DBG_LOG
+#else
+#define DBG_LVL                        DBG_ERROR
+#endif
 #include <rtdbg.h>
-
 
 #define PMS_THREAD_STACK_SIZE          1024
 #define PMS_THREAD_PRIORITY            (RT_THREAD_PRIORITY_MAX/2)
